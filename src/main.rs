@@ -1,17 +1,63 @@
+pub mod commands;
+
 extern crate dotenv;
 
-use dotenv::dotenv;
-use std::env;
+mod lib;
 
+use crate::lib::response::ResponseData;
+
+use dotenv::dotenv;
+use serenity::model::prelude::interaction;
+use std::env;
+use std::error::Error;
+
+use serenity::model::application::interaction::application_command::ApplicationCommandInteraction;
 use serenity::async_trait;
 use serenity::model::channel::Message;
 use serenity::model::gateway::Ready;
 use serenity::prelude::*;
+use serenity::model::application::command::Command;
+use serenity::model::application::interaction::{Interaction, InteractionResponseType};
+use serenity::model::id::GuildId;
+
+async fn handle_command(command: &ApplicationCommandInteraction, ctx: &Context) -> Result<(), Box<dyn Error>> {
+    let unknown_command_response: ResponseData = ResponseData {
+        command: command.data.name.clone(),
+        content: "Unknown command".to_string(),
+    };
+
+    let content = match command.data.name.as_str() {
+        "ping" => commands::ping::run(command),
+
+        _ => unknown_command_response,
+    };
+
+    if let Err(why) = command
+        .create_interaction_response(&ctx.http, |response| {
+            response
+                .kind(InteractionResponseType::ChannelMessageWithSource)
+                .interaction_response_data(move |message| {
+                    message.content(content.content);
+
+                    message
+                })
+        }).await {
+            println!("Error sending response: {:?}", why);
+        }
+
+    Ok(())
+}
 
 struct Handler;
 
 #[async_trait]
 impl EventHandler for Handler {
+    async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
+        if let Interaction::ApplicationCommand(command) = interaction {
+            handle_command(&command, &ctx).await;
+        }
+    }
+
     async fn message(&self, ctx: Context, msg: Message) {
         if msg.content == "!ping" {
             if let Err(why) = msg.channel_id.say(&ctx.http, "Pong!").await {
@@ -20,7 +66,19 @@ impl EventHandler for Handler {
         }
     }
 
-    async fn ready(&self, _: Context, ready: Ready) {
+    async fn ready(&self, ctx: Context, ready: Ready) {
+        let guild_id = GuildId(
+            env::var("GUILD_ID")
+                .expect("Expected a guild ID in the environment")
+                .parse()
+                .expect("Failed to parse GUILD_ID"),
+        );
+
+        let _dev_commands = GuildId::set_application_commands(&guild_id, &ctx.http, |commands| {
+            commands
+                .create_application_command(|command| commands::ping::register(command))
+        }).await;
+
         println!("{} is connected!", ready.user.name);
     }
 }
