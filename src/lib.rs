@@ -3,6 +3,7 @@ pub mod response {
 
     pub struct ResponseData {
         pub command: String,
-        pub content: String,
+        pub content: Option<String>,
+        pub embeds: Option<Vec<CreateEmbed>>,
     }
 }

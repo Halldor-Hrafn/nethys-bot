@@ -6,7 +6,8 @@ use serenity::model::prelude::interaction::application_command::ApplicationComma
 pub fn run(_command: &ApplicationCommandInteraction) -> ResponseData {
     ResponseData {
         command: "ping".to_string(),
-        content: "Pong!".to_string(),
+        content: Some("Pong!".to_string()),
+        embeds: None,
     }
 }
 

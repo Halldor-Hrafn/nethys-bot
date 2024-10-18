@@ -23,11 +23,14 @@ use serenity::model::id::GuildId;
 async fn handle_command(command: &ApplicationCommandInteraction, ctx: &Context) -> Result<(), Box<dyn Error>> {
     let unknown_command_response: ResponseData = ResponseData {
         command: command.data.name.clone(),
-        content: "Unknown command".to_string(),
+        content: Some("Unknown command".to_string()),
+        embeds: None,
     };
 
     let content = match command.data.name.as_str() {
         "ping" => commands::ping::run(command),
+
+        "test" => commands::test::run(command),
 
         _ => unknown_command_response,
     };
@@ -37,7 +40,17 @@ async fn handle_command(command: &ApplicationCommandInteraction, ctx: &Context) 
             response
                 .kind(InteractionResponseType::ChannelMessageWithSource)
                 .interaction_response_data(move |message| {
-                    message.content(content.content);
+                    if content.content.is_some() {
+                        message.content(content.content.unwrap());
+                    } else {
+                        // pass
+                    }
+
+                    if content.embeds.is_some() {
+                        message.add_embeds(content.embeds.unwrap());
+                    } else {
+                        // pass
+                    }
 
                     message
                 })
@@ -74,10 +87,11 @@ impl EventHandler for Handler {
                 .expect("Failed to parse GUILD_ID"),
         );
 
-        let _dev_commands = GuildId::set_application_commands(&guild_id, &ctx.http, |commands| {
-            commands
-                .create_application_command(|command| commands::ping::register(command))
-        }).await;
+        // let _dev_commands = GuildId::set_application_commands(&guild_id, &ctx.http, |commands| {
+        //     commands
+        //         .create_application_command(|command| commands::ping::register(command))
+        //         .create_application_command(|command| commands::test::register(command))
+        // }).await;
 
         println!("{} is connected!", ready.user.name);
     }
